@@ -8,9 +8,12 @@ import time
 import traceback
 from pathlib import Path
 from queue import Queue, Empty
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 from .state import Job, JobStatus, store
+
+if TYPE_CHECKING:
+    from src.tts import TTSEngine
 
 
 class TaskProcessor:
@@ -21,8 +24,7 @@ class TaskProcessor:
         self._workers: list[threading.Thread] = []
         self._num_workers = num_workers
         self._running = False
-        self._engines: dict = {}
-        self._engine_lock = threading.Lock()
+        self._engine: Optional["TTSEngine"] = None
         self._output_dir = Path(tempfile.mkdtemp(prefix="tts_output_"))
         self._voice = "af_heart"
         self._lang = "a"
@@ -40,9 +42,14 @@ class TaskProcessor:
         print(f"[init] loading model repo_id=hexgrad/Kokoro-82M lang={lang}")
 
         t0 = time.perf_counter()
-        self._get_engine()
+        from src.tts import TTSEngine
+
+        self._engine = TTSEngine(lang_code=self._lang)
         t1 = time.perf_counter()
-        print(f"[init] model loaded in {t1 - t0:.2f}s")
+        print(
+            f"[init] model loaded in {t1 - t0:.2f}s "
+            f"(device={self._engine.device} pipelines={self._engine.num_pipelines})"
+        )
 
         for i in range(self._num_workers):
             t = threading.Thread(
@@ -64,17 +71,6 @@ class TaskProcessor:
         """Add a job to the processing queue."""
         self._queue.put(job_id)
         store.add_log(job_id, f"enqueued queue_size={self._queue.qsize()}")
-
-    def _get_engine(self):
-        """Get or create TTS engine per thread."""
-        thread_id = threading.get_ident()
-        if thread_id not in self._engines:
-            with self._engine_lock:
-                if thread_id not in self._engines:
-                    from src.tts import TTSEngine
-
-                    self._engines[thread_id] = TTSEngine(lang_code=self._lang)
-        return self._engines[thread_id]
 
     def _worker_loop(self, worker_id: int):
         """Worker loop for processing jobs."""
@@ -114,7 +110,9 @@ class TaskProcessor:
             store.update_job(job.id, progress=10, message="chunking")
             store.add_log(job.id, f"voice={job.voice} lang={self._lang}")
 
-            engine = self._get_engine()
+            if self._engine is None:
+                raise RuntimeError("processor not started")
+            engine = self._engine
             output_path = self._output_dir / f"{job.id}.wav"
 
             # Import here to get chunk count

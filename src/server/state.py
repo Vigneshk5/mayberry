@@ -29,6 +29,7 @@ class Job:
     filename: str
     text: str
     voice: str = "af_heart"
+    speed: float = 1.0
     status: JobStatus = JobStatus.PENDING
     progress: int = 0
     message: str = ""
@@ -39,6 +40,7 @@ class Job:
     total_segments: int = 0
     current_segment: int = 0
     text_preview: str = ""
+    duration_sec: float = 0.0
 
 
 class JobStore:
@@ -47,7 +49,9 @@ class JobStore:
     def __init__(self):
         self._jobs: dict[str, Job] = {}
 
-    def create_job(self, filename: str, text: str, voice: str = "af_heart") -> Job:
+    def create_job(
+        self, filename: str, text: str, voice: str = "af_heart", speed: float = 1.0
+    ) -> Job:
         job_id = str(uuid.uuid4())[:8]
         preview = (
             text[:100].replace("\n", " ") + "..."
@@ -55,13 +59,18 @@ class JobStore:
             else text.replace("\n", " ")
         )
         job = Job(
-            id=job_id, filename=filename, text=text, voice=voice, text_preview=preview
+            id=job_id,
+            filename=filename,
+            text=text,
+            voice=voice,
+            speed=speed,
+            text_preview=preview,
         )
         self._jobs[job_id] = job
         char_count = len(text)
         self.add_log(
             job_id,
-            f"created job_id={job_id} file={filename} size={char_count} voice={voice}",
+            f"created job_id={job_id} file={filename} size={char_count} voice={voice} speed={speed}",
         )
         return job
 

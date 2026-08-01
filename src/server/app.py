@@ -8,13 +8,14 @@ from typing import Optional
 
 from fastapi import FastAPI, File, Form, UploadFile, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
+from pydantic import BaseModel
 
 from .state import store, JobStatus
 from .tasks import processor
 from .documents import extract_text_from_file
 
 
-app = FastAPI(title="Kokoro TTS")
+app = FastAPI(title="Mayberry TTS")
 
 # Available voices
 VOICES = {
@@ -30,6 +31,12 @@ VOICES = {
     "bm_george": "George (British Male)",
     "bm_lewis": "Lewis (British Male)",
 }
+
+
+class SynthesizeRequest(BaseModel):
+    text: str
+    voice: str = "af_heart"
+    speed: float = 1.0
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -49,6 +56,7 @@ async def list_voices():
 async def upload_document(
     file: UploadFile = File(...),
     voice: str = Form(default="af_heart"),
+    speed: float = Form(default=1.0),
 ):
     """Upload a document and create a TTS job."""
     if not file.filename:
@@ -56,6 +64,9 @@ async def upload_document(
 
     if voice not in VOICES:
         raise HTTPException(status_code=400, detail=f"Invalid voice: {voice}")
+
+    if not (0.5 <= speed <= 2.0):
+        raise HTTPException(status_code=400, detail="Speed must be 0.5–2.0")
 
     suffix = Path(file.filename).suffix
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
@@ -71,18 +82,49 @@ async def upload_document(
                 status_code=400, detail="Could not extract text from document"
             )
 
-        job = store.create_job(filename=file.filename, text=text, voice=voice)
+        job = store.create_job(
+            filename=file.filename, text=text, voice=voice, speed=speed
+        )
         processor.enqueue(job.id)
 
         return {
             "job_id": job.id,
             "filename": job.filename,
             "voice": voice,
+            "speed": speed,
             "text_length": len(text),
         }
 
     finally:
         tmp_path.unlink(missing_ok=True)
+
+
+@app.post("/api/synthesize")
+async def synthesize_text(body: SynthesizeRequest):
+    """Synthesize text directly without a file upload."""
+    if body.voice not in VOICES:
+        raise HTTPException(status_code=400, detail=f"Invalid voice: {body.voice}")
+
+    if not (0.5 <= body.speed <= 2.0):
+        raise HTTPException(status_code=400, detail="Speed must be 0.5–2.0")
+
+    text = body.text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Text is empty")
+
+    display_name = f"{text[:50].replace(chr(10), ' ')}..."
+    job = store.create_job(
+        filename=display_name, text=text, voice=body.voice, speed=body.speed
+    )
+    processor.enqueue(job.id)
+
+    return {
+        "job_id": job.id,
+        "filename": display_name,
+        "voice": body.voice,
+        "speed": body.speed,
+        "text_length": len(text),
+    }
 
 
 @app.get("/api/jobs")
@@ -94,6 +136,7 @@ async def list_jobs():
             "id": j.id,
             "filename": j.filename,
             "voice": j.voice,
+            "speed": j.speed,
             "status": j.status.value,
             "progress": j.progress,
             "message": j.message,
@@ -103,6 +146,7 @@ async def list_jobs():
             "total_segments": j.total_segments,
             "current_segment": j.current_segment,
             "text_preview": j.text_preview,
+            "duration_sec": j.duration_sec,
             "logs": [
                 {"time": log.timestamp.strftime("%H:%M:%S.%f")[:-3], "msg": log.message}
                 for log in j.logs[-15:]
@@ -123,6 +167,7 @@ async def get_job(job_id: str):
         "id": job.id,
         "filename": job.filename,
         "voice": job.voice,
+        "speed": job.speed,
         "status": job.status.value,
         "progress": job.progress,
         "message": job.message,
@@ -131,6 +176,7 @@ async def get_job(job_id: str):
         "total_segments": job.total_segments,
         "current_segment": job.current_segment,
         "text_preview": job.text_preview,
+        "duration_sec": job.duration_sec,
         "logs": [
             {"time": log.timestamp.strftime("%H:%M:%S.%f")[:-3], "msg": log.message}
             for log in job.logs

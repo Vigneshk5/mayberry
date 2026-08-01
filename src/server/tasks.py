@@ -144,12 +144,14 @@ class TaskProcessor:
                 text=text,
                 output_path=output_path,
                 voice=job.voice,
+                speed=job.speed,
                 on_progress=on_progress,
             )
             t_gen_end = time.perf_counter()
 
             file_size = output_path.stat().st_size
             duration_sec = file_size / (24000 * 2)
+            job.duration_sec = duration_sec
 
             store.add_log(job.id, f"generated in {t_gen_end - t_gen_start:.2f}s")
             store.add_log(

@@ -2,13 +2,11 @@
 TTS Engine - Core text-to-speech generation logic.
 """
 
-import os
 import re
 import threading
 import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from queue import Queue
 from typing import Callable, Optional
 
 import numpy as np
@@ -24,10 +22,8 @@ warnings.filterwarnings("ignore", category=UserWarning, module="torch")
 # Max chars per chunk (kokoro context ~512 tokens, ~2500 chars is safe)
 CHUNK_SIZE = 2500
 
-# Number of pipelines in the shared pool (chunks generate concurrently)
-PARALLEL_WORKERS = int(os.environ.get("TTS_WORKERS", "4"))
-
-REPO_ID = "hexgrad/Kokoro-82M"
+# Number of parallel workers for chunk generation
+PARALLEL_WORKERS = 4
 
 
 def split_into_chunks(text: str, max_chars: int = CHUNK_SIZE) -> list[str]:
@@ -75,35 +71,19 @@ def split_into_chunks(text: str, max_chars: int = CHUNK_SIZE) -> list[str]:
 
 
 class TTSEngine:
-    """Kokoro-82M TTS engine: one shared KModel with a pool of pipelines.
+    """Kokoro-82M Text-to-Speech Engine."""
 
-    A KPipeline holds only lightweight state (G2P, voice cache), so a pool of
-    them can share a single KModel and generate chunks concurrently without
-    serializing on a lock.
-    """
-
-    def __init__(
-        self,
-        lang_code: str = DEFAULT_LANG,
-        device: str | None = None,
-        num_pipelines: int = PARALLEL_WORKERS,
-    ):
-        from kokoro import KModel, KPipeline
+    def __init__(self, lang_code: str = DEFAULT_LANG, device: str | None = None):
+        from kokoro import KPipeline
 
         self.device = device or get_device()
         self.lang_code = lang_code
-
-        self.model = KModel(repo_id=REPO_ID).to(self.device).eval()
-
-        self._pool: Queue = Queue(maxsize=num_pipelines)
-        for _ in range(num_pipelines):
-            self._pool.put(
-                KPipeline(lang_code=lang_code, repo_id=REPO_ID, model=self.model)
-            )
-
-    @property
-    def num_pipelines(self) -> int:
-        return self._pool.maxsize
+        self.pipeline = KPipeline(
+            lang_code=lang_code,
+            device=self.device,
+            repo_id="hexgrad/Kokoro-82M",
+        )
+        self._lock = threading.Lock()
 
     def generate_chunk(
         self,
@@ -112,23 +92,25 @@ class TTSEngine:
         speed: float = DEFAULT_SPEED,
     ) -> np.ndarray:
         """Generate audio for a single chunk (with caching)."""
+        # Check cache first
         cached = get_cached_chunk(text, voice, speed)
         if cached is not None:
             return cached
 
-        pipeline = self._pool.get()
-        try:
-            segments = [
-                audio for _, _, audio in pipeline(text, voice=voice, speed=speed)
-            ]
-        finally:
-            self._pool.put(pipeline)
+        # Generate with lock to ensure thread safety on pipeline
+        with self._lock:
+            generator = self.pipeline(text, voice=voice, speed=speed)
+            segments = []
+
+            for _, _, audio in generator:
+                segments.append(audio)
 
         if not segments:
             return np.array([], dtype=np.float32)
 
         audio = np.concatenate(segments)
 
+        # Cache the result
         cache_chunk(text, voice, speed, audio)
 
         return audio
@@ -148,7 +130,7 @@ class TTSEngine:
         if total_chunks == 0:
             raise ValueError("No text to process")
 
-        if parallel and total_chunks > 1 and self.num_pipelines > 1:
+        if parallel and total_chunks > 1:
             return self._generate_parallel(chunks, voice, speed, on_progress)
         else:
             return self._generate_sequential(chunks, voice, speed, on_progress)
@@ -194,9 +176,7 @@ class TTSEngine:
         def process_chunk(idx: int, chunk: str) -> tuple[int, np.ndarray]:
             return idx, self.generate_chunk(chunk, voice=voice, speed=speed)
 
-        with ThreadPoolExecutor(
-            max_workers=min(self.num_pipelines, total_chunks)
-        ) as executor:
+        with ThreadPoolExecutor(max_workers=PARALLEL_WORKERS) as executor:
             futures = {
                 executor.submit(process_chunk, i, chunk): i
                 for i, chunk in enumerate(chunks)

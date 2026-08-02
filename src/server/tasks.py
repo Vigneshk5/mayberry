@@ -46,10 +46,7 @@ class TaskProcessor:
 
         self._engine = TTSEngine(lang_code=self._lang)
         t1 = time.perf_counter()
-        print(
-            f"[init] model loaded in {t1 - t0:.2f}s "
-            f"(device={self._engine.device} pipelines={self._engine.num_pipelines})"
-        )
+        print(f"[init] model loaded in {t1 - t0:.2f}s (device={self._engine.device})")
 
         for i in range(self._num_workers):
             t = threading.Thread(

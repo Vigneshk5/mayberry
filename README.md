@@ -127,13 +127,6 @@ mayberry/
 └── pyproject.toml
 ```
 
-## Performance Tips
-
-- **Larger documents**: Processing is parallelized across chunks
-- **Repeated content**: Cached automatically, instant on second run
-- **Long sessions**: Use `caffeinate -i` on macOS to prevent sleep
-- **Multiple files**: Queue multiple uploads, processed concurrently
-
 ## License
 
 MIT

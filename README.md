@@ -126,7 +126,3 @@ mayberry/
 │       └── index.html   # Web UI
 └── pyproject.toml
 ```
-
-## License
-
-MIT

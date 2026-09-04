@@ -46,6 +46,25 @@ async def index():
     return HTMLResponse(content=html_path.read_text())
 
 
+@app.get("/logo.svg")
+async def logo():
+    """Serve logo SVG."""
+    logo_path = Path(__file__).parent.parent / "static" / "logo.svg"
+    if logo_path.exists():
+        return FileResponse(logo_path, media_type="image/svg+xml")
+    raise HTTPException(status_code=404, detail="Logo not found")
+
+
+@app.get("/favicon.svg")
+@app.get("/favicon.ico")
+async def favicon():
+    """Serve favicon."""
+    logo_path = Path(__file__).parent.parent / "static" / "logo.svg"
+    if logo_path.exists():
+        return FileResponse(logo_path, media_type="image/svg+xml")
+    raise HTTPException(status_code=404, detail="Favicon not found")
+
+
 @app.get("/api/voices")
 async def list_voices():
     """List available voices."""

@@ -1,6 +1,13 @@
-# Mayberry
+<p align="center">
+  <img src="./logo.svg" width="96" height="96" alt="Mayberry logo" />
+</p>
 
-> Local, private text-to-speech — no API keys, no cloud, no tracking. Powered by [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M).
+<h1 align="center">Mayberry</h1>
+
+<p align="center">
+  Local, private text-to-speech — no API keys, no cloud, no tracking.<br/>
+  Powered by <a href="https://huggingface.co/hexgrad/Kokoro-82M">Kokoro-82M</a>
+</p>
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)

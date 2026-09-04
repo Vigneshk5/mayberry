@@ -1,0 +1,32 @@
+<svg width="512" height="512" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+<title>Mayberry — local text-to-speech</title>
+<desc>Berry leaf above a waveform M</desc>
+<!-- bg -->
+<rect width="128" height="128" rx="28" fill="#0F0F0F" stroke="#232323" stroke-width="1.2"/>
+<!-- subtle inner highlight -->
+<rect x="0.7" y="0.7" width="126.6" height="126.6" rx="27.3" fill="none" stroke="white" stroke-opacity="0.04"/>
+<!-- leaf / berry accent -->
+<g transform="translate(64,18)">
+  <!-- stem -->
+  <path d="M0 8 L0 13" stroke="#2a2a2a" stroke-width="1.2" stroke-linecap="round" opacity="0.9"/>
+  <!-- leaf left -->
+  <path d="M0 8 C -6 2, -10 -1, -6 -8 C -2 -12, 0 -8, 0 8 Z" fill="#4ade80"/>
+  <!-- leaf right -->
+  <path d="M0 8 C 6 2, 10 -1, 6 -8 C 2 -12, 0 -8, 0 8 Z" fill="#22c55e"/>
+  <!-- berry highlight -->
+  <circle cx="0" cy="-7.2" r="1.1" fill="white" opacity="0.9"/>
+</g>
+<!-- waveform M — 6 bars -->
+<g transform="translate(0,6)">
+  <!-- bar defined as rx=5 => pill -->
+  <rect x="18.5" y="54" width="9.5" height="28" rx="4.75" fill="#3b82f6"/>
+  <rect x="31.5" y="38" width="9.5" height="60" rx="4.75" fill="#4a9eff"/>
+  <rect x="44.5" y="52" width="9.5" height="32" rx="4.75" fill="#60a5fa" opacity="0.95"/>
+  <rect x="57.5" y="62" width="9.5" height="18" rx="4.75" fill="#3b82f6" opacity="0.9"/>
+  <rect x="70.5" y="52" width="9.5" height="32" rx="4.75" fill="#60a5fa" opacity="0.95"/>
+  <rect x="83.5" y="38" width="9.5" height="60" rx="4.75" fill="#4a9eff"/>
+  <rect x="96.5" y="54" width="9.5" height="28" rx="4.75" fill="#3b82f6"/>
+</g>
+<!-- small baseline -->
+<rect x="38" y="106.5" width="52" height="1.2" rx="0.6" fill="white" opacity="0.06"/>
+</svg>
